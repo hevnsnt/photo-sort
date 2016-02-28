@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import datetime
 import shutil
+import sys
 
 #######################- Setting Console Colors -########################
 # Console colors
@@ -56,6 +57,10 @@ def move_file(date, source, dest, filename, sha256):
             print('')
             print (R + 'error: %s' % e + W)
             notparsed.append(os.path.join(source, filename))
+            if e.errno == 13:
+                print('\nYou do not have write permission at %s' % dest),
+                print(' Exiting.\n')
+                sys.exit()
             return
     try:
         shutil.copy2(os.path.join(source, filename), destination) #copy2 retains all file attributes
@@ -77,12 +82,12 @@ def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA'
     os.system('cls' if os.name == 'nt' else 'clear')
     print '#' * 80
     if testMode:
-        print('#' + R + ' **TEST MODE** ' + W + 'No file operations')
+        print('#' + G + ' **TEST MODE** ' + W + 'No file operations')
     else:
         if moveMode:
-            print('#' + R + ' **MOVE FILE MODE** ' + W + 'No file operations')
+            print('#' + R + ' **MOVE FILE MODE** ' + W)
         else:
-            print('#' + R + ' **COPY FILE MODE** ' + W)
+            print('#' + B + ' **COPY FILE MODE**  No Destructive Operations' + W)
     
     if exif:
         print(W + '# File details retreived from: ' + G + ' EXIF Data')
