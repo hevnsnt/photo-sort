@@ -38,20 +38,24 @@ def photosort(imagetypes, source, dest):
 
 def move_file(date, source, dest, filename, sha256):
     global duplicate # Needed for duplicate tracking
+    global notparsed
     destination = os.path.join(dest, date[0], date[1], filename)
-    print('Moving %s to %s' % (os.path.join(source, filename), destination))
-    if os.path.exists(destination):
+    print('Processing: %s \nMoving to: %s' % (os.path.join(source, filename), destination))
+    if os.path.exists(destination): # No need to check for duplicate if DIR doesnt even exist
         oldFileSHA256 = hashFile(destination) #hash existing file
-        if oldFileSHA256 == sha256:
+        if oldFileSHA256 == sha256: # DUPLICATE CHECKING
             if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
             duplicate += 1
             return
     if not os.path.exists(os.path.join(dest, date[0], date[1])): #If the destination dir doesnt exist
         try:
+            if verbose:print('Making %s Directory' % os.path.join(dest, date[0], date[1]))
             os.makedirs(os.path.join(dest, date[0], date[1])) #Try to create it
         except Exception, e:
-            if verbose:
-                print ('error: %s' % e)
+            print('')
+            print (R + 'error: %s' % e + W)
+            notparsed.append(os.path.join(source, filename))
+            return
     try:
         shutil.copy2(os.path.join(source, filename), destination) #copy2 retains all file attributes
         if moveMode: # moveMode will remove the source file only after it has confirmed the copy is exactly the same hash
@@ -72,8 +76,14 @@ def move_file(date, source, dest, filename, sha256):
 def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA', filename='NA'):
     os.system('cls' if os.name == 'nt' else 'clear')
     print '#' * 80
-    if testMode:print('#' + R + ' **TEST MODE** ' + W + 'No file operations')
-    else:print('#' + R + ' **FILE OPERATIONS MODE** ' + W)
+    if testMode:
+        print('#' + R + ' **TEST MODE** ' + W + 'No file operations')
+    else:
+        if moveMode:
+            print('#' + R + ' **MOVE FILE MODE** ' + W + 'No file operations')
+        else:
+            print('#' + R + ' **COPY FILE MODE** ' + W)
+    
     if exif:
         print(W + '# File details retreived from: ' + G + ' EXIF Data')
     else:
@@ -88,7 +98,7 @@ def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA'
     print('  [' + G + '+' + W + '] OS Files: %s' % len(osfiles))
     print('  [' + G + '+' + W + '] Total Files Processed: %s' % filecount)
     print('  [' + R + '-' + W + '] Total Duplicate Files Found: %s' % duplicate)
-    print('  [' + R + '-' + W + '] Total Files NOT Processed: %s' % len(notparsed))
+    print('  [' + R + '-' + W + '] Total Files NOT Copied: %s' % len(notparsed))
     print('')
 
 
@@ -131,9 +141,19 @@ def getDate(tags, f):
     return date, exif
 
 def displayNotparsed(notparsed):
-    print('Items not moved:')
-    for item in notparsed:
-        print(' [+] %s' % item)
+    if len(notparsed) >= 20:
+        print('%s files were not processed, Would you like to see those items?' % len(notparsed))
+        userInput = raw_input("Y/N? ").upper()
+        if userInput == 'N':
+            return
+        elif userInput == 'Y':
+            print('Items not moved:')
+            for item in notparsed:
+                print(' [+] %s' % item)
+        else: 
+            print('Invalid Selection:\n')
+            displayNotparsed(notparsed)
+
 
 
 #-------------------Get command line input----------------------------------
