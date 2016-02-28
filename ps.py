@@ -38,12 +38,13 @@ def photosort(imagetypes, source, dest):
 
 def move_file(date, source, dest, filename, sha256):
     global duplicate # Needed for duplicate tracking
-    global notparsed
-    destination = os.path.join(dest, date[0], date[1], filename)
-    print('Processing: %s \nMoving to: %s' % (os.path.join(source, filename), destination))
+    global notparsed # Needed for notparsed tracking
+    destination = os.path.join(dest, date[0], date[1], filename) # This creates the final destination directory\filename
+    if verbose:print('Processing: %s \nDestination: %s' % (os.path.join(source, filename), destination)),
     if os.path.exists(destination): # No need to check for duplicate if DIR doesnt even exist
         oldFileSHA256 = hashFile(destination) #hash existing file
         if oldFileSHA256 == sha256: # DUPLICATE CHECKING
+            if verbose:print(G + ' [Duplicate File Found]' + W)
             if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
             duplicate += 1
             return
@@ -58,6 +59,7 @@ def move_file(date, source, dest, filename, sha256):
             return
     try:
         shutil.copy2(os.path.join(source, filename), destination) #copy2 retains all file attributes
+        if verbose:print(G + '[DONE]' + W)
         if moveMode: # moveMode will remove the source file only after it has confirmed the copy is exactly the same hash
             # Need to check new file vs old file hash
             newFileSHA256 = hashFile(destination) #hash newly created file
@@ -65,12 +67,10 @@ def move_file(date, source, dest, filename, sha256):
                 print('Hash Match: removing %s' % os.path.join(source, filename))
                 #os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
     except Exception, e:
-        print ('error: %s' % e)
-        raw_input()
-        '''if moveMode:
-            sourchHash = hashFile(file)
-            print('%s : %s' % (file, sourchHash))
-            raw_input()'''
+        print (R + 'error: %s' % e + W)
+        notparsed.append(os.path.join(source, filename))
+        return
+
 
 
 def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA', filename='NA'):
