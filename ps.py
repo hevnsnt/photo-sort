@@ -40,7 +40,7 @@ def move_file(date, source, dest, filename, sha256):
     global duplicate # Needed for duplicate tracking
     global notparsed # Needed for notparsed tracking
     destination = os.path.join(dest, date[0], date[1], filename) # This creates the final destination directory\filename
-    if verbose:print('Processing: %s \nDestination: %s' % (os.path.join(source, filename), destination)),
+    if verbose:print('\nProcessing: %s \nDestination: %s' % (os.path.join(source, filename), destination)),
     if os.path.exists(destination): # No need to check for duplicate if DIR doesnt even exist
         oldFileSHA256 = hashFile(destination) #hash existing file
         if oldFileSHA256 == sha256: # DUPLICATE CHECKING
@@ -99,7 +99,7 @@ def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA'
     print('  [' + G + '+' + W + '] Total Files Processed: %s' % filecount)
     print('  [' + R + '-' + W + '] Total Duplicate Files Found: %s' % duplicate)
     print('  [' + R + '-' + W + '] Total Files NOT Copied: %s' % len(notparsed))
-    print('')
+    #print('')
 
 
 def getDeets(file, block_size=2**20):
@@ -142,7 +142,9 @@ def getDate(tags, f):
 
 def displayNotparsed(notparsed):
     if len(notparsed) >= 20:
-        print('%s files were not processed, Would you like to see those items?' % len(notparsed))
+        print(R + '#' * (70))
+        print(R + '#' + W + ' %s files were not processed, Would you like to see those items?' % len(notparsed) + R + '   #' + W)
+        print(R + '#' * (70) + W)
         userInput = raw_input("Y/N? ").upper()
         if userInput == 'N':
             return
@@ -188,3 +190,4 @@ if __name__ == "__main__":
     displayNotparsed(notparsed)
     print('')
     print('Photosort has completed all operations')
+    print('')
