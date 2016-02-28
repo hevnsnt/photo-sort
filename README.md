@@ -3,6 +3,10 @@
 ***** DO NOT USE THIS, it is a project in development and may RUIN all of your photos. *****
 
 ***** I will update this readme when it is ready for use                               *****
+
+***** Still considering using this?  Consider the quality of this README               *****
+
+***** The Code is much worse.
 ********************************************************************************************
 
 ===v0x01=======
