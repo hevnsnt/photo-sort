@@ -109,7 +109,7 @@ def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA'
         if moveMode:
             print('#' + R + ' **MOVE FILE MODE** ' + W)
         else:
-            print('#' + B + ' **COPY FILE MODE**  No Destructive Operations' + W)
+            print('#' + B + ' **!COPY FILE MODE**  No Destructive Operations' + W)
     
     if exif:
         print(W + '# File details retreived from: ' + G + ' EXIF Data')
