@@ -70,7 +70,6 @@ def move_file(date, source, dest, filename, sha256):
             if oldFileSHA256 == sha256: # DUPLICATE CHECKING
                 if verbose:print(G + ' [Duplicate File Found]' + W)
                 if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
-                duplicate += 1
                 return
         if not os.path.exists(os.path.join(dest, date[0], date[1])): #If the destination dir doesnt exist
             try:
