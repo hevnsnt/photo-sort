@@ -32,24 +32,23 @@ def photosort(imagetypes, source, dest):
             fileupper = filename.upper()
             if fileupper.endswith(imagetypes): # Is the file we found the type of file we care about?
                 sha256, date, exif = getDeets(os.path.join(dirname, filename))
-                if not sha256 in hashes.keys(): # Have we seen this file before?
-                    hashes[sha256] = {'date':date, 'exif':exif, 'firstFound':os.path.join(dirname, filename)}
-                    filebanner(sha256, date, exif, dirname, filename)
-                    if not testMode:
-                        move_file(date, dirname, dest, filename, sha256)
+                if not sha256 in hashes.keys(): # hashes is a dictionary of seen hashes, if hash not in hashes, this is a new file
+                    hashes[sha256] = {'date':date, 'exif':exif, 'firstFound':os.path.join(dirname, filename)} # So we add it to hashes dict
+                    filebanner(sha256, date, exif, dirname, filename) 
+                    move_file(date, dirname, dest, filename, sha256)
                 else:
-                    print('\nHASH COLLISION')
+                    # If we make it here, we have detected a duplicate file
                     date1 = datetime.date(int(hashes[sha256]['date'][0]), int(hashes[sha256]['date'][1]), int(hashes[sha256]['date'][2])) 
                     date2 = datetime.date(int(date[0]), int(date[1]), int(date[2]))
-                    print('Already processed file: %s' % hashes[sha256]['firstFound'])
-                    print('With date: %s' % date1)
-                    print('Found file: %s' % os.path.join(dirname, filename))
-                    print('With date: %s' % date2)
+                    # print('Already processed file: %s' % hashes[sha256]['firstFound'])
+                    # print('With date: %s' % date1)
+                    # print('Found file: %s' % os.path.join(dirname, filename))
+                    # print('With date: %s' % date2)
                     if date1 <= date2:
-                        print('original file is older, I suggest keeping it how it is')
+                        # original file is older, I suggest keeping it how it is
                         if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
                     else:
-                        print('original file is newer, I suggest going with this file')
+                        #original file is newer, I suggest we keep and process this file
                         if moveMode:move_file(date, dirname, dest, filename, sha256) 
                     # Check the existing file vs the processed file to see which is older
                     # If EXIF then based AND Date is different go ahead and process it.
@@ -63,39 +62,40 @@ def move_file(date, source, dest, filename, sha256):
     global notparsed # Needed for notparsed tracking
     destination = os.path.join(dest, date[0], date[1], filename) # This creates the final destination directory\filename
     if verbose:print('\nProcessing: %s \nDestination: %s' % (os.path.join(source, filename), destination)),
-    if os.path.exists(destination): # No need to check for duplicate if DIR doesnt even exist
-        oldFileSHA256 = hashFile(destination) #hash existing file
-        if oldFileSHA256 == sha256: # DUPLICATE CHECKING
-            if verbose:print(G + ' [Duplicate File Found]' + W)
-            if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
-            duplicate += 1
-            return
-    if not os.path.exists(os.path.join(dest, date[0], date[1])): #If the destination dir doesnt exist
+    if not testMode:
+        if os.path.exists(destination): # No need to check for duplicate if DIR doesnt even exist
+            oldFileSHA256 = hashFile(destination) #hash existing file
+            if oldFileSHA256 == sha256: # DUPLICATE CHECKING
+                if verbose:print(G + ' [Duplicate File Found]' + W)
+                if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
+                duplicate += 1
+                return
+        if not os.path.exists(os.path.join(dest, date[0], date[1])): #If the destination dir doesnt exist
+            try:
+                if verbose:print('Making %s Directory' % os.path.join(dest, date[0], date[1]))
+                os.makedirs(os.path.join(dest, date[0], date[1])) #Try to create it
+            except Exception, e:
+                print('')
+                print (R + 'error: %s' % e + W)
+                notparsed.append(os.path.join(source, filename))
+                if e.errno == 13:
+                    print('\nYou do not have write permission at %s' % dest),
+                    print(' Exiting.\n')
+                    sys.exit()
+                return
         try:
-            if verbose:print('Making %s Directory' % os.path.join(dest, date[0], date[1]))
-            os.makedirs(os.path.join(dest, date[0], date[1])) #Try to create it
+            shutil.copy2(os.path.join(source, filename), destination) #copy2 retains all file attributes
+            if verbose:print(G + '[DONE]' + W)
+            if moveMode: # moveMode will remove the source file only after it has confirmed the copy is exactly the same hash
+                # Need to check new file vs old file hash
+                newFileSHA256 = hashFile(destination) #hash newly created file
+                if newFileSHA256 == sha256:
+                    print('Hash Match: removing %s' % os.path.join(source, filename))
+                    #os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
         except Exception, e:
-            print('')
             print (R + 'error: %s' % e + W)
             notparsed.append(os.path.join(source, filename))
-            if e.errno == 13:
-                print('\nYou do not have write permission at %s' % dest),
-                print(' Exiting.\n')
-                sys.exit()
             return
-    try:
-        shutil.copy2(os.path.join(source, filename), destination) #copy2 retains all file attributes
-        if verbose:print(G + '[DONE]' + W)
-        if moveMode: # moveMode will remove the source file only after it has confirmed the copy is exactly the same hash
-            # Need to check new file vs old file hash
-            newFileSHA256 = hashFile(destination) #hash newly created file
-            if newFileSHA256 == sha256:
-                print('Hash Match: removing %s' % os.path.join(source, filename))
-                #os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
-    except Exception, e:
-        print (R + 'error: %s' % e + W)
-        notparsed.append(os.path.join(source, filename))
-        return
 
 
 
