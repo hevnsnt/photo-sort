@@ -1,0 +1,3 @@
+* Implement a list that keeps track of all SHA256s that have been tested to do duplicate testing
+* Implmennt a config file
+* Make a GUI

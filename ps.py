@@ -7,6 +7,7 @@ import datetime
 import shutil
 import sys
 
+
 #######################- Setting Console Colors -########################
 # Console colors
 W  = '\033[0m'  # white (normal)
@@ -24,15 +25,35 @@ def photosort(imagetypes, source, dest):
     '''This function uses scandir (python 2.x) to retrive
     a list of files, and then process the files to get the file date'''
     global notparsed
+    global hashes
     filebanner()
     for dirname, dirnames, filenames in scandir.walk(source):
         for filename in filenames:
             fileupper = filename.upper()
-            if fileupper.endswith(imagetypes):
+            if fileupper.endswith(imagetypes): # Is the file we found the type of file we care about?
                 sha256, date, exif = getDeets(os.path.join(dirname, filename))
-                filebanner(sha256, date, exif, dirname, filename)
-                if not testMode:
-                    move_file(date, dirname, dest, filename, sha256)
+                if not sha256 in hashes.keys(): # Have we seen this file before?
+                    hashes[sha256] = {'date':date, 'exif':exif, 'firstFound':os.path.join(dirname, filename)}
+                    filebanner(sha256, date, exif, dirname, filename)
+                    if not testMode:
+                        move_file(date, dirname, dest, filename, sha256)
+                else:
+                    print('\nHASH COLLISION')
+                    date1 = datetime.date(int(hashes[sha256]['date'][0]), int(hashes[sha256]['date'][1]), int(hashes[sha256]['date'][2])) 
+                    date2 = datetime.date(int(date[0]), int(date[1]), int(date[2]))
+                    print('Already processed file: %s' % hashes[sha256]['firstFound'])
+                    print('With date: %s' % date1)
+                    print('Found file: %s' % os.path.join(dirname, filename))
+                    print('With date: %s' % date2)
+                    if date1 <= date2:
+                        print('original file is older, I suggest keeping it how it is')
+                        if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
+                    else:
+                        print('original file is newer, I suggest going with this file')
+                        if moveMode:move_file(date, dirname, dest, filename, sha256) 
+                    # Check the existing file vs the processed file to see which is older
+                    # If EXIF then based AND Date is different go ahead and process it.
+
             else:
                 notparsed.append(os.path.join(dirname, filename))
 
@@ -116,7 +137,6 @@ def getDeets(file, block_size=2**20):
     sha256 = hashFile(file)
     date, exif = getDate(tags, file)
     if not exif:
-        date = [date[0][0], date[0][1], date[0][02], date[1], date[2], date[3]]
         osfiles.append(file)
     else:
         exiffiles.append(file)
@@ -142,6 +162,7 @@ def getDate(tags, f):
         # os.stat(filename).st_mtime
         date = str(datetime.datetime.fromtimestamp(os.stat(f).st_mtime)).replace(':', ' ').split()
         date[0] = date[0].replace('-', ' ').split()
+        date = [date[0][0], date[0][1], date[0][2], date[1], date[2], date[3]]
         exif = False
     return date, exif
 
@@ -186,6 +207,7 @@ osfiles = []
 imagetypes = ('.GIF', '.JPG', '.PNG', '.JPEG')
 notparsed = []
 duplicate = 0
+hashes = {}
 #-------------------Init global vars----------------------------------
 
 if __name__ == "__main__":
