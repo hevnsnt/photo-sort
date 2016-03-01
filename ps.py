@@ -137,6 +137,7 @@ def getDeets(file, block_size=2**20):
     tags = exifread.process_file(f)
     sha256 = hashFile(file)
     date, exif = getDate(tags, file)
+    f.close()
     if not exif:
         osfiles.append(file)
     else:
