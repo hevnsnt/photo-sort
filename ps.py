@@ -26,6 +26,7 @@ def photosort(imagetypes, source, dest):
     a list of files, and then process the files to get the file date'''
     global notparsed
     global hashes
+    global duplicate
     filebanner()
     for dirname, dirnames, filenames in scandir.walk(source):
         for filename in filenames:
@@ -37,6 +38,7 @@ def photosort(imagetypes, source, dest):
                     filebanner(sha256, date, exif, dirname, filename) 
                     move_file(date, dirname, dest, filename, sha256)
                 else:
+                    duplicate += 1
                     # If we make it here, we have detected a duplicate file
                     date1 = datetime.date(int(hashes[sha256]['date'][0]), int(hashes[sha256]['date'][1]), int(hashes[sha256]['date'][2])) 
                     date2 = datetime.date(int(date[0]), int(date[1]), int(date[2]))
