@@ -6,7 +6,13 @@ import hashlib
 import datetime
 import shutil
 import sys
+import time
+import threading
 
+
+## Time Tests:
+## Single Threaded: 2.11981105804 1.78328084946 1.87511110306 Total Files Processed: 295
+## Multi Threaded: 
 
 #######################- Setting Console Colors -########################
 # Console colors
@@ -19,6 +25,18 @@ P  = '\033[35m'  # purple
 C  = '\033[36m'  # cyan
 GR = '\033[37m'  # gray
 T  = '\033[93m'  # tan
+
+
+class myThread (threading.Thread):
+    def __init__(self, threadID, name, counter):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.counter = counter
+    def run(self):
+        if verbose: print "Starting " + self.name
+        photosort(imagetypes, sourceDir, destinationDir)
+        if verbose: print "Exiting " + self.name
 
 
 def photosort(imagetypes, source, dest):
@@ -213,10 +231,25 @@ hashes = {}
 #-------------------Init global vars----------------------------------
 
 if __name__ == "__main__":
+    start_time = time.time()
     # execute only if run as a script
-    photosort(imagetypes, sourceDir, destinationDir)
+    threads = []
+    # Create new threads
+    thread1 = myThread(1, "Thread-1", 1)
+    thread2 = myThread(2, "Thread-2", 2)
+    thread3 = myThread(3, "Thread-3", 3)
+    # Start new Threads
+    thread1.start()
+    thread2.start()
+    thread3.start()
+    threads.append(thread1)
+    threads.append(thread2)
+    for t in threads:
+        t.join()
+
     print('')
     displayNotparsed(notparsed)
     print('')
-    print('Photosort has completed all operations')
+    print('Time processing: %s' % str(time.time() - start_time) )
+    print('Photosort has completed all operations.' )
     print('')
