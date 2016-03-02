@@ -1,18 +1,20 @@
-import scandir
 import os
-import exifread
-import argparse
-import hashlib
-import datetime
-import shutil
 import sys
 import time
-import threading
+import shutil
+import scandir
+import hashlib
+import exifread
+import argparse
+import datetime
+from stat import S_ISREG
+import multiprocessing as mp
 
 
 ## Time Tests:
 ## Single Threaded: 2.11981105804 1.78328084946 1.87511110306 Total Files Processed: 295
-## Multi Threaded: 
+## Multi Threaded: 1.65844511986 1.61673307419
+## MP Time processing: 0.818398952484
 
 #######################- Setting Console Colors -########################
 # Console colors
@@ -27,59 +29,43 @@ GR = '\033[37m'  # gray
 T  = '\033[93m'  # tan
 
 
-class myThread (threading.Thread):
-    def __init__(self, threadID, name, counter):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.name = name
-        self.counter = counter
-    def run(self):
-        if verbose: print "Starting " + self.name
-        photosort(imagetypes, sourceDir, destinationDir)
-        if verbose: print "Exiting " + self.name
-
-
-def photosort(imagetypes, source, dest):
+def photosort(processFile):
     '''This function uses scandir (python 2.x) to retrive
     a list of files, and then process the files to get the file date'''
+    global destinationDir
     global notparsed
     global hashes
     global duplicate
     filebanner()
-    for dirname, dirnames, filenames in scandir.walk(source):
-        for filename in filenames:
-            fileupper = filename.upper()
-            if fileupper.endswith(imagetypes): # Is the file we found the type of file we care about?
-                sha256, date, exif = getDeets(os.path.join(dirname, filename))
-                if not sha256 in hashes.keys(): # hashes is a dictionary of seen hashes, if hash not in hashes, this is a new file
-                    hashes[sha256] = {'date':date, 'exif':exif, 'firstFound':os.path.join(dirname, filename)} # So we add it to hashes dict
-                    filebanner(sha256, date, exif, dirname, filename) 
-                    move_file(date, dirname, dest, filename, sha256)
-                else:
-                    duplicate += 1
-                    # If we make it here, we have detected a duplicate file
-                    date1 = datetime.date(int(hashes[sha256]['date'][0]), int(hashes[sha256]['date'][1]), int(hashes[sha256]['date'][2])) 
-                    date2 = datetime.date(int(date[0]), int(date[1]), int(date[2]))
+    sha256, date, exif = getDeets(processFile)
+
+    if not sha256 in hashes.keys(): # hashes is a dictionary of seen hashes, if hash not in hashes, this is a new file
+        hashes[sha256] = {'date':date, 'exif':exif, 'firstFound':processFile} # So we add it to hashes dict
+        filebanner(sha256, date, exif, processFile) 
+        move_file(date, os.path.dirname(processFile), destinationDir, processFile, sha256)
+    else:
+        duplicate += 1
+        # If we make it here, we have detected a duplicate file
+        date1 = datetime.date(int(hashes[sha256]['date'][0]), int(hashes[sha256]['date'][1]), int(hashes[sha256]['date'][2])) 
+        date2 = datetime.date(int(date[0]), int(date[1]), int(date[2]))
                     # print('Already processed file: %s' % hashes[sha256]['firstFound'])
                     # print('With date: %s' % date1)
                     # print('Found file: %s' % os.path.join(dirname, filename))
                     # print('With date: %s' % date2)
-                    if date1 <= date2:
-                        # original file is older, I suggest keeping it how it is
-                        if moveMode:os.remove(os.path.join(source, filename)) # Because we have the same file, no need to keep this one
-                    else:
-                        #original file is newer, I suggest we keep and process this file
-                        if moveMode:move_file(date, dirname, dest, filename, sha256) 
-                    # Check the existing file vs the processed file to see which is older
-                    # If EXIF then based AND Date is different go ahead and process it.
-
-            else:
-                notparsed.append(os.path.join(dirname, filename))
+        if date1 <= date2:
+        # original file is older, I suggest keeping it how it is
+            if moveMode:os.remove(processFile) # Because we have the same file, no need to keep this one
+        else:
+            #original file is newer, I suggest we keep and process this file
+            if moveMode:move_file(date, os.path.dirname(processFile), destinationDir, filename, sha256) 
+             # Check the existing file vs the processed file to see which is older
+            # If EXIF then based AND Date is different go ahead and process it.
+        print('done photosort function')
 
 
 def move_file(date, source, dest, filename, sha256):
-    global duplicate # Needed for duplicate tracking
-    global notparsed # Needed for notparsed tracking
+    #global duplicate # Needed for duplicate tracking
+    #global notparsed # Needed for notparsed tracking
     destination = os.path.join(dest, date[0], date[1], filename) # This creates the final destination directory\filename
     if verbose:print('\nProcessing: %s \nDestination: %s' % (os.path.join(source, filename), destination)),
     if not testMode:
@@ -118,7 +104,7 @@ def move_file(date, source, dest, filename, sha256):
 
 
 
-def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA', filename='NA'):
+def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', filename='NA'):
     os.system('cls' if os.name == 'nt' else 'clear')
     print '#' * 80
     if testMode:
@@ -134,7 +120,7 @@ def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', dirname='NA'
     else:
         print(W + '# File details retreived from: ' + G + ' Operating System')
     print(W + '# Year: ' + G + date[0] + W + ' | Month: ' + G + date[1] + W + ' | Day: ' + G + date[2])
-    print(W + '# Directory: ' + G + dirname)
+    print(W + '# Directory: ' + G + os.path.dirname(filename))
     print(W + '# File Name: ' + G + filename)
     print(W + '# SHA256 Hash: ' + G + sha256 + W)
     print '#' * 80
@@ -228,28 +214,51 @@ imagetypes = ('.GIF', '.JPG', '.PNG', '.JPEG')
 notparsed = []
 duplicate = 0
 hashes = {}
+size_limit = 1000
 #-------------------Init global vars----------------------------------
 
-if __name__ == "__main__":
-    start_time = time.time()
-    # execute only if run as a script
-    threads = []
-    # Create new threads
-    thread1 = myThread(1, "Thread-1", 1)
-    thread2 = myThread(2, "Thread-2", 2)
-    thread3 = myThread(3, "Thread-3", 3)
-    # Start new Threads
-    thread1.start()
-    thread2.start()
-    thread3.start()
-    threads.append(thread1)
-    threads.append(thread2)
-    for t in threads:
-        t.join()
 
+#######################- Multi-Processing -########################
+def walk_files(source):
+    global imagetypes
+    """yield up full pathname for each file in tree under source"""
+    for dirpath, dirnames, filenames in scandir.walk(source):
+        for filename in filenames:
+            fileupper = filename.upper()
+            if fileupper.endswith(imagetypes): # Is the file we found the type of file we care about?
+                pathname = os.path.join(dirpath, filename)
+                yield pathname
+
+            else:
+                notparsed.append(os.path.join(dirpath, filename))
+            
+
+def files_to_search(source):
+    global filecount
+    """yield up full pathname for only files we want to search"""
+    for fname in walk_files(source):
+        try:
+            # if it is a regular file and big enough, we want to search it
+            sr = os.stat(fname)
+            if S_ISREG(sr.st_mode) and sr.st_size >= size_limit:
+                filecount += 1
+                yield fname
+        except OSError:
+            pass
+
+def worker_search_fn(fname):
+    photosort(fname)
+    return
+#######################- Multi-Processing -########################
+
+
+if __name__ == "__main__": # execute only if run as a script
+    start_time = time.time() # keep track of time
+    mp.Pool().map(worker_search_fn, files_to_search(sourceDir))
     print('')
     displayNotparsed(notparsed)
     print('')
+    print('Processed %s files' % filecount)
     print('Time processing: %s' % str(time.time() - start_time) )
     print('Photosort has completed all operations.' )
     print('')
