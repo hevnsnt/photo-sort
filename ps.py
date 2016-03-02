@@ -11,6 +11,20 @@ from stat import S_ISREG
 import multiprocessing as mp
 
 
+class Counter(object):
+    def __init__(self, initval=0):
+        self.val = mp.Value('i', initval)
+        self.lock = mp.Lock()
+
+    def increment(self):
+        with self.lock:
+            self.val.value += 1
+
+    def value(self):
+        with self.lock:
+            return self.val.value
+
+
 ## Time Tests:
 ## Single Threaded: 2.11981105804 1.78328084946 1.87511110306 Total Files Processed: 295
 ## Multi Threaded: 1.65844511986 1.61673307419
@@ -64,8 +78,8 @@ def photosort(processFile):
 
 
 def move_file(date, source, dest, filename, sha256):
-    #global duplicate # Needed for duplicate tracking
-    #global notparsed # Needed for notparsed tracking
+    global duplicate # Needed for duplicate tracking
+    global notparsed # Needed for notparsed tracking
     destination = os.path.join(dest, date[0], date[1], filename) # This creates the final destination directory\filename
     if verbose:print('\nProcessing: %s \nDestination: %s' % (os.path.join(source, filename), destination)),
     if not testMode:
@@ -125,11 +139,11 @@ def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', filename='NA
     print(W + '# SHA256 Hash: ' + G + sha256 + W)
     print '#' * 80
     print("")
-    print('  [' + G + '+' + W + '] EXIF Files: %s' % len(exiffiles))
-    print('  [' + G + '+' + W + '] OS Files: %s' % len(osfiles))
-    print('  [' + G + '+' + W + '] Total Files Processed: %s' % filecount)
-    print('  [' + R + '-' + W + '] Total Duplicate Files Found: %s' % duplicate)
-    print('  [' + R + '-' + W + '] Total Files NOT Copied: %s' % len(notparsed))
+    #print('  [' + G + '+' + W + '] EXIF Files: %s' % len(exiffiles))
+    #print('  [' + G + '+' + W + '] OS Files: %s' % len(osfiles))
+    print('  [' + G + '+' + W + '] Total Files Processed: %s' % counter.value())
+    #print('  [' + R + '-' + W + '] Total Duplicate Files Found: %s' % duplicate)
+    #print('  [' + R + '-' + W + '] Total Files NOT Copied: %s' % len(notparsed))
     #print('')
 
 
@@ -214,6 +228,7 @@ imagetypes = ('.GIF', '.JPG', '.PNG', '.JPEG')
 notparsed = []
 duplicate = 0
 hashes = {}
+counter = Counter(0)
 size_limit = 1000
 #-------------------Init global vars----------------------------------
 
@@ -241,7 +256,7 @@ def files_to_search(source):
             # if it is a regular file and big enough, we want to search it
             sr = os.stat(fname)
             if S_ISREG(sr.st_mode) and sr.st_size >= size_limit:
-                filecount += 1
+                counter.increment()
                 yield fname
         except OSError:
             pass
