@@ -2,20 +2,21 @@ import os
 import sys
 import time
 import shutil
+import signal
 import scandir
 import hashlib
 import exifread
 import argparse
 import datetime
 from stat import S_ISREG
-#import multiprocessing as mp
-from multiprocessing import Process, Value, Lock, Pool
+import multiprocessing as mp
+#from multiprocessing import Process, Value, Lock, Pool
 
 
 class Counter(object):
     def __init__(self, initval=0):
-        self.val = Value('i', initval)
-        self.lock = Lock()
+        self.val = mp.Value('i', initval)
+        self.lock = mp.Lock()
 
     def increment(self):
         with self.lock:
@@ -266,18 +267,31 @@ def files_to_search(source):
 
 def worker_search_fn(fname):
     photosort(fname)
+    #time.sleep([5,5])
     return
 #######################- Multi-Processing -########################
 
 
 if __name__ == "__main__": # execute only if run as a script
     start_time = time.time() # keep track of time
-    Pool().map(worker_search_fn, files_to_search(sourceDir))
+    #Pool().map(worker_search_fn, files_to_search(sourceDir))
 
-    
-    #procs = [Process(target=worker_search_fn, args=(files_to_search(sourceDir),)) for i in range(10)]
-    #for p in procs: p.start()
-    #for p in procs: p.join()
+    print("Initializng 2 workers")
+    original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pool = mp.Pool(8)
+    signal.signal(signal.SIGINT, original_sigint_handler)
+    try:
+        print("Starting 2 jobs of 5 seconds each")
+        res = pool.map_async(worker_search_fn, files_to_search(sourceDir))
+        print("Waiting for results")
+        res.get(60) # Without the timeout this blocking call ignores all signals.
+    except KeyboardInterrupt:
+        print("Caught KeyboardInterrupt, terminating workers")
+        pool.terminate()
+    else:
+        print("Normal termination")
+        pool.close()
+        pool.join()
 
     print('')
     displayNotparsed(notparsed)
