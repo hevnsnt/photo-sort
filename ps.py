@@ -276,13 +276,14 @@ if __name__ == "__main__": # execute only if run as a script
     start_time = time.time() # keep track of time
     #Pool().map(worker_search_fn, files_to_search(sourceDir))
 
-    print("Initializng 2 workers")
+    print("Initializng workers")
     original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     pool = mp.Pool(8)
     signal.signal(signal.SIGINT, original_sigint_handler)
     try:
-        print("Starting 2 jobs of 5 seconds each")
-        res = pool.map_async(worker_search_fn, files_to_search(sourceDir))
+        print("Exploring Directories: Please Wait")
+        #res = pool.map_async(worker_search_fn, files_to_search(sourceDir))
+        Pool().map(worker_search_fn, files_to_search(sourceDir))
         print("Waiting for results")
         res.get(60) # Without the timeout this blocking call ignores all signals.
     except KeyboardInterrupt:
