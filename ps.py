@@ -272,7 +272,7 @@ def worker_search_fn(fname):
 
 if __name__ == "__main__": # execute only if run as a script
     start_time = time.time() # keep track of time
-    Pool().map(worker_search_fn, files_to_search(sourceDir)):
+    Pool().map(worker_search_fn, files_to_search(sourceDir))
 
     
     #procs = [Process(target=worker_search_fn, args=(files_to_search(sourceDir),)) for i in range(10)]
