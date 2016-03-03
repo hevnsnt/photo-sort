@@ -8,13 +8,14 @@ import exifread
 import argparse
 import datetime
 from stat import S_ISREG
-import multiprocessing as mp
+#import multiprocessing as mp
+from multiprocessing import Process, Value, Lock, Pool
 
 
 class Counter(object):
     def __init__(self, initval=0):
-        self.val = mp.Value('i', initval)
-        self.lock = mp.Lock()
+        self.val = Value('i', initval)
+        self.lock = Lock()
 
     def increment(self):
         with self.lock:
@@ -57,8 +58,9 @@ def photosort(processFile):
         hashes[sha256] = {'date':date, 'exif':exif, 'firstFound':processFile} # So we add it to hashes dict
         filebanner(sha256, date, exif, processFile) 
         move_file(date, os.path.dirname(processFile), destinationDir, processFile, sha256)
+        counter.increment()
     else:
-        duplicate += 1
+        duplicate.increment()
         # If we make it here, we have detected a duplicate file
         date1 = datetime.date(int(hashes[sha256]['date'][0]), int(hashes[sha256]['date'][1]), int(hashes[sha256]['date'][2])) 
         date2 = datetime.date(int(date[0]), int(date[1]), int(date[2]))
@@ -142,8 +144,8 @@ def filebanner(sha256='NA', date=['NA','NA','NA','NA',], exif='NA', filename='NA
     #print('  [' + G + '+' + W + '] EXIF Files: %s' % len(exiffiles))
     #print('  [' + G + '+' + W + '] OS Files: %s' % len(osfiles))
     print('  [' + G + '+' + W + '] Total Files Processed: %s' % counter.value())
-    #print('  [' + R + '-' + W + '] Total Duplicate Files Found: %s' % duplicate)
-    #print('  [' + R + '-' + W + '] Total Files NOT Copied: %s' % len(notparsed))
+    print('  [' + R + '-' + W + '] Total Duplicate Files Found: %s' % duplicate.value())
+    print('  [' + R + '-' + W + '] Total Files NOT Copied: %s' % len(notparsed))
     #print('')
 
 
@@ -151,6 +153,7 @@ def getDeets(file, block_size=2**20):
     global exiffiles
     global osfiles
     global filecount
+    print file
     f = open(file, 'rb')
     tags = exifread.process_file(f)
     sha256 = hashFile(file)
@@ -160,7 +163,7 @@ def getDeets(file, block_size=2**20):
         osfiles.append(file)
     else:
         exiffiles.append(file)
-    filecount += 1
+    filecount.increment()
     return sha256, date, exif
 
 
@@ -169,6 +172,7 @@ def hashFile(file):
     f = open(file, 'rb')
     f = f.read()
     sha256 = hashlib.sha256(f).hexdigest()
+    #f.close()
     return sha256
 
 
@@ -221,12 +225,12 @@ moveMode = results.moveMode
 sourceDir = results.sourceDir
 destinationDir = results.destinationDir
 verbose = results.verboseMode
-filecount = 0
+filecount = Counter(0)
 exiffiles = []
 osfiles = []
 imagetypes = ('.GIF', '.JPG', '.PNG', '.JPEG')
 notparsed = []
-duplicate = 0
+duplicate = Counter(0)
 hashes = {}
 counter = Counter(0)
 size_limit = 1000
@@ -256,7 +260,6 @@ def files_to_search(source):
             # if it is a regular file and big enough, we want to search it
             sr = os.stat(fname)
             if S_ISREG(sr.st_mode) and sr.st_size >= size_limit:
-                counter.increment()
                 yield fname
         except OSError:
             pass
@@ -269,11 +272,17 @@ def worker_search_fn(fname):
 
 if __name__ == "__main__": # execute only if run as a script
     start_time = time.time() # keep track of time
-    mp.Pool().map(worker_search_fn, files_to_search(sourceDir))
+    Pool().map(worker_search_fn, files_to_search(sourceDir)):
+
+    
+    #procs = [Process(target=worker_search_fn, args=(files_to_search(sourceDir),)) for i in range(10)]
+    #for p in procs: p.start()
+    #for p in procs: p.join()
+
     print('')
     displayNotparsed(notparsed)
     print('')
-    print('Processed %s files' % filecount)
+    print('Processed %s files' % filecount.value())
     print('Time processing: %s' % str(time.time() - start_time) )
     print('Photosort has completed all operations.' )
     print('')
