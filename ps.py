@@ -2,21 +2,20 @@ import os
 import sys
 import time
 import shutil
-import signal
 import scandir
 import hashlib
 import exifread
 import argparse
 import datetime
 from stat import S_ISREG
-import multiprocessing as mp
-#from multiprocessing import Process, Value, Lock, Pool
+#import multiprocessing as mp
+from multiprocessing import Process, Value, Lock, Pool
 
 
 class Counter(object):
     def __init__(self, initval=0):
-        self.val = mp.Value('i', initval)
-        self.lock = mp.Lock()
+        self.val = Value('i', initval)
+        self.lock = Lock()
 
     def increment(self):
         with self.lock:
@@ -83,8 +82,8 @@ def photosort(processFile):
 def move_file(date, source, dest, filename, sha256):
     global duplicate # Needed for duplicate tracking
     global notparsed # Needed for notparsed tracking
-    destination = os.path.join(dest, date[0], date[1], filename) # This creates the final destination directory\filename
-    if verbose:print('\nProcessing: %s \nDestination: %s' % (os.path.join(source, filename), destination)),
+    destination = os.path.join(dest, date[0], date[1], os.path.basename(filename)) # This creates the final destination directory\filename
+    if verbose:print('\nProcessing: %s \nDestination: %s' % (os.path.join(filename), destination)),
     if not testMode:
         if os.path.exists(destination): # No need to check for duplicate if DIR doesnt even exist
             oldFileSHA256 = hashFile(destination) #hash existing file
@@ -106,7 +105,7 @@ def move_file(date, source, dest, filename, sha256):
                     sys.exit()
                 return
         try:
-            shutil.copy2(os.path.join(source, filename), destination) #copy2 retains all file attributes
+            shutil.copy2(os.path.join(filename), destination) #copy2 retains all file attributes
             if verbose:print(G + '[DONE]' + W)
             if moveMode: # moveMode will remove the source file only after it has confirmed the copy is exactly the same hash
                 # Need to check new file vs old file hash
@@ -267,32 +266,18 @@ def files_to_search(source):
 
 def worker_search_fn(fname):
     photosort(fname)
-    #time.sleep([5,5])
     return
 #######################- Multi-Processing -########################
 
 
 if __name__ == "__main__": # execute only if run as a script
     start_time = time.time() # keep track of time
-    #Pool().map(worker_search_fn, files_to_search(sourceDir))
+    Pool().map(worker_search_fn, files_to_search(sourceDir))
 
-    print("Initializng workers")
-    original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    pool = mp.Pool(8)
-    signal.signal(signal.SIGINT, original_sigint_handler)
-    try:
-        print("Exploring Directories: Please Wait")
-        #res = pool.map_async(worker_search_fn, files_to_search(sourceDir))
-        Pool().map(worker_search_fn, files_to_search(sourceDir))
-        print("Waiting for results")
-        res.get(60) # Without the timeout this blocking call ignores all signals.
-    except KeyboardInterrupt:
-        print("Caught KeyboardInterrupt, terminating workers")
-        pool.terminate()
-    else:
-        print("Normal termination")
-        pool.close()
-        pool.join()
+    
+    #procs = [Process(target=worker_search_fn, args=(files_to_search(sourceDir),)) for i in range(10)]
+    #for p in procs: p.start()
+    #for p in procs: p.join()
 
     print('')
     displayNotparsed(notparsed)
